@@ -1,0 +1,2 @@
+0 Attractive
+1 unattractive
