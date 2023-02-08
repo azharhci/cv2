@@ -1,9 +1,6 @@
 from keras.models import load_model
 from PIL import Image, ImageOps #Install pillow instead of PIL
 import numpy as np
-import xlsxwriter
-import cv2
-import argparse
 import openpyxl
 import os
 from PIL import Image
@@ -12,6 +9,7 @@ from PIL import Image
 file_names = []
 
 folder_path = "D:\Machine Learning\mages"
+
 # Disable scientific notation for clarity
 np.set_printoptions(suppress=True)
 
@@ -33,13 +31,16 @@ model_sensual = load_model('keras_model_sensual.h5', compile=False)
 class_names_sensual = open('labels_sensual.txt', 'r').readlines()
 
 # Creat a class to store the image attributes
+model_outdoor = load_model('keras_model_indoor.h5', compile=False)
+class_names_outdoor = open('keras_model_indoor.txt', 'r').readlines()
 
 class ImageAttributes:
-  def __init__(self, name, lowangle, phototype, sensual):
+  def __init__(self, name, lowangle, phototype, sensual,outdoor):
     self.name = name
     self.lowangle = lowangle
     self.phototype = phototype
     self.sensual =  sensual
+    self.outdoor = outdoor
 
 for images in os.listdir(folder_path):
  
@@ -48,9 +49,9 @@ for images in os.listdir(folder_path):
         print(images)
         folder_paths = "D:\Machine Learning\mages"
         image = Image.open(folder_paths+"\\"+ images).convert('RGB')
-        print("second", image)
     # Create the array of the right shape to feed into the keras model
         data = np.ndarray(shape=(1, 224, 224, 3), dtype=np.float32)
+        data2 = np.ndarray(shape=(1, 224, 224, 3), dtype=np.float32)
 
     #resize the image to a 224x224 with the same strategy as in TM2:
     #resizing the image to be at least 224x224 and then cropping from the center
@@ -62,9 +63,13 @@ for images in os.listdir(folder_path):
 
     # Normalize the image
         normalized_image_array = (image_array.astype(np.float32) / 127.0) - 1
+        normalized_image_array_2 = (image_array.astype(np.float32) / 127.0) - 1
+
 
     # Load the image into the array
         data[0] = normalized_image_array
+        data2[0] = normalized_image_array_2
+
 
     # run the inference
         prediction = model.predict(data)
@@ -79,9 +84,13 @@ for images in os.listdir(folder_path):
 
         prediction3 = model_sensual.predict(data)
         index3 = np.argmax(prediction3)
-        class_name_sensual = class_names_sensual[index]
-        confidence_score_sensual = prediction3[0][index]
+        class_name_sensual = class_names_sensual[index3]
+        confidence_score_sensual = prediction3[0][index3]
 
+        prediction4 = model_outdoor.predict(data2)
+        index4 = np.argmax(prediction4)
+        class_name_outdoor = class_names_outdoor[index4]
+        confidence_score_outdoor = prediction4[0][index4]
         print('Class2:', class_name2, end='')
         print('Confidence score:', confidence_score2)
 
@@ -91,8 +100,11 @@ for images in os.listdir(folder_path):
         print("Class Sensual:", class_name_sensual[2:], end="")
         print("Confidence Score:", confidence_score_sensual)
 
+        print("Class Sensual:", class_name_outdoor[2:], end="")
+        print("Confidence Score:",  confidence_score_outdoor)
+
     # Add the file name to the array
-        file_names.append(ImageAttributes(images,class_name,class_name2,class_name_sensual))
+        file_names.append(ImageAttributes(images,class_name,class_name2,class_name_sensual[2:], class_name_outdoor[2:]))
 
 # Print the array of file names
 print(file_names)
@@ -105,6 +117,8 @@ sheet.cell(row=1, column= 1, value= "Image Name")
 sheet.cell(row=1, column= 3, value= "Photo Type")
 sheet.cell(row=1, column= 4, value= "Camera Angle")
 sheet.cell(row=1, column= 6, value= "Sensuality")
+sheet.cell(row=1, column= 8, value= "Indoor/Outdoor")
+
 
 for i, obj in enumerate(file_names):
     print(obj.name)
@@ -112,6 +126,8 @@ for i, obj in enumerate(file_names):
     sheet.cell(row=i+2, column= 3, value=obj.phototype)
     sheet.cell(row=i+2, column= 4, value=obj.lowangle)
     sheet.cell(row=i+2, column= 6, value=obj.sensual)
+    sheet.cell(row=i+2, column= 8, value=obj.outdoor)
+
 # Save the workbook to an Excel file
 workbook.save("datas.xlsx")
 
